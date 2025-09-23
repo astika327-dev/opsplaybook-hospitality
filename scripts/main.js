@@ -19,18 +19,24 @@ if (document.startViewTransition) {
 }
 
 //ini agar smooth di atas codenya
-const checkboxes = document.querySelectorAll('#quick-checklist input[type="checkbox"]');
-const progressBar = document.getElementById('progressBar');
-const progressText = document.getElementById('progressText');
-function updateProgress() {
-  const total = checkboxes.length;
-  const done = [...checkboxes].filter(c => c.checked).length;
-  const pct = Math.round((done / total) * 100);
-  progressBar.style.width = pct + '%';
-  progressText.textContent = `${done}/${total} tasks`;
-}
-checkboxes.forEach(cb => cb.addEventListener('change', updateProgress));
-updateProgress();
+(() => {
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  if (!progressBar || !progressText) return;
+
+  const checkboxes = document.querySelectorAll('#quick-checklist input[type="checkbox"]');
+
+  function updateProgress() {
+    const total = checkboxes.length;
+    const done = [...checkboxes].filter(c => c.checked).length;
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    progressBar.style.width = pct + '%';
+    progressText.textContent = `${done}/${total} tasks`;
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateProgress));
+  updateProgress();
+})();
 
 // Modal open/close
 document.querySelectorAll('[data-open-modal="roomInspection"]').forEach(btn => {
