@@ -1,6 +1,36 @@
 
 // Mobile nav (simple enhancement if needed later)
 
+const navLinks = document.querySelectorAll('#site-nav a');
+
+function normalizePath(pathname) {
+  if (!pathname) return '/';
+  let normalized = pathname;
+  if (normalized.endsWith('/index.html')) {
+    normalized = normalized.slice(0, -'index.html'.length);
+  } else if (normalized.endsWith('index.html')) {
+    normalized = normalized.slice(0, -'index.html'.length);
+  }
+  if (normalized.length > 1 && normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized || '/';
+}
+
+if (navLinks.length) {
+  const currentPath = normalizePath(location.pathname);
+  navLinks.forEach(link => {
+    const href = link.getAttribute('href');
+    if (!href) return;
+    const linkPath = normalizePath(new URL(href, location.href).pathname);
+    if (linkPath === currentPath) {
+      link.classList.add('active');
+    } else {
+      link.classList.remove('active');
+    }
+  });
+}
+
 // Hero checklist progress
 // Smooth page transitions (Chrome/Edge/Safari modern)
 if (document.startViewTransition) {
