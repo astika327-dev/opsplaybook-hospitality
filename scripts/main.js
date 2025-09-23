@@ -1,4 +1,8 @@
 
+const root = document.documentElement;
+root.classList.remove('no-js');
+root.classList.add('js');
+
 // Mobile nav (simple enhancement if needed later)
 
 // Hero checklist progress
