@@ -10,7 +10,6 @@ export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  // Re-trigger Vercel build with the latest commit
   const { id } = await context.params;
   const session = await getServerSession(authOptions);
   if (
