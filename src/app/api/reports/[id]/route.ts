@@ -3,11 +3,11 @@ import { reports, approvals } from "@/lib/db/schema";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { approvalSchema } from "@/lib/validations";
 
 export async function PUT(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
