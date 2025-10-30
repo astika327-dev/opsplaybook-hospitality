@@ -8,8 +8,9 @@ import { approvalSchema } from "@/lib/validations";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   const session = await getServerSession(authOptions);
   if (
     !session ||
@@ -25,12 +26,12 @@ export async function PUT(
   const updatedReport = await db
     .update(reports)
     .set({ status: body.status })
-    .where(eq(reports.id, parseInt(params.id)))
+    .where(eq(reports.id, parseInt(id)))
     .returning();
 
   if (session.user.id) {
     await db.insert(approvals).values({
-      reportId: parseInt(params.id),
+      reportId: parseInt(id),
       approverId: parseInt(session.user.id),
       status: body.status,
       comments: body.comments,
