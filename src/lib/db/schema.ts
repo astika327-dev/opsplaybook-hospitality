@@ -27,9 +27,6 @@ export const reports = sqliteTable("reports", {
   department: text("department", {
     enum: ["housekeeping", "front-desk", "f-b", "maintenance"],
   }),
-  checklists: text("checklists", { mode: "json" }),
-  issues: text("issues", { mode: "json" }),
-  photos: text("photos", { mode: "json" }),
   status: text("status", {
     enum: ["draft", "submitted", "approved", "rejected", "needs_revision"],
   }),
@@ -49,6 +46,38 @@ export const approvals = sqliteTable("approvals", {
   approvedAt: integer("approved_at", { mode: "timestamp" }),
 });
 
+// New table for checklists
+export const checklists = sqliteTable("checklists", {
+  id: integer("id").primaryKey(),
+  reportId: integer("report_id")
+    .references(() => reports.id, { onDelete: "cascade" }) // Cascade delete
+    .notNull(),
+  item: text("item").notNull(),
+  status: text("status", { enum: ["completed", "incomplete"] }).notNull(),
+});
+
+// New table for issues
+export const issues = sqliteTable("issues", {
+  id: integer("id").primaryKey(),
+  reportId: integer("report_id")
+    .references(() => reports.id, { onDelete: "cascade" })
+    .notNull(),
+  description: text("description").notNull(),
+  isResolved: integer("is_resolved", { mode: "boolean" })
+    .default(false)
+    .notNull(),
+});
+
+// New table for photos
+export const photos = sqliteTable("photos", {
+  id: integer("id").primaryKey(),
+  reportId: integer("report_id")
+    .references(() => reports.id, { onDelete: "cascade" })
+    .notNull(),
+  url: text("url").notNull(), // URL from Cloudinary or other storage
+  caption: text("caption"),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   reports: many(reports),
   approvals: many(approvals),
@@ -60,6 +89,31 @@ export const reportsRelations = relations(reports, ({ one, many }) => ({
     references: [users.id],
   }),
   approvals: many(approvals),
+  checklists: many(checklists),
+  issues: many(issues),
+  photos: many(photos),
+}));
+
+// Relations for the new tables
+export const checklistsRelations = relations(checklists, ({ one }) => ({
+  report: one(reports, {
+    fields: [checklists.reportId],
+    references: [reports.id],
+  }),
+}));
+
+export const issuesRelations = relations(issues, ({ one }) => ({
+  report: one(reports, {
+    fields: [issues.reportId],
+    references: [reports.id],
+  }),
+}));
+
+export const photosRelations = relations(photos, ({ one }) => ({
+  report: one(reports, {
+    fields: [photos.reportId],
+    references: [reports.id],
+  }),
 }));
 
 export const approvalsRelations = relations(approvals, ({ one }) => ({
