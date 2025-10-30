@@ -2,10 +2,10 @@ import { db } from "@/lib/db";
 import { reports, users } from "@/lib/db/schema";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { eq, leftJoin } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { type NextRequest, NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return new Response("Unauthorized", { status: 401 });
