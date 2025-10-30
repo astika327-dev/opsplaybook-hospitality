@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,197 +22,228 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { reportSchema } from "@/lib/validations"; // Menggunakan skema terpusat
+import { Trash2 } from "lucide-react";
 
+// Tipe form berdasarkan skema Zod
+type ReportFormValues = z.infer<typeof reportSchema>;
+
+// Template checklist yang bisa didapat dari API di masa depan
 const departmentTemplates = {
-  housekeeping: {
-    checklists: [
-      { id: "clean_rooms", label: "Clean Rooms" },
-      { id: "restock_supplies", label: "Restock Supplies" },
-      { id: "report_maintenance", label: "Report Maintenance Issues" },
-    ],
-  },
-  "front-desk": {
-    checklists: [
-      { id: "check_in", label: "Guest Check-in" },
-      { id: "check_out", label: "Guest Check-out" },
-      { id: "handle_complaints", label: "Handle Complaints" },
-    ],
-  },
-  "f-b": {
-    checklists: [
-      { id: "kitchen_status", label: "Check Kitchen Status" },
-      { id: "inventory_check", label: "Inventory Check" },
-      { id: "customer_feedback", label: "Gather Customer Feedback" },
-    ],
-  },
-  maintenance: {
-    checklists: [
-      { id: "equipment_check", label: "Equipment Checks" },
-      { id: "repair_work", label: "Complete Repair Work" },
-    ],
-  },
+  housekeeping: ["Clean rooms", "Restock supplies", "Report maintenance"],
+  "front-desk": ["Guest check-in", "Guest check-out", "Handle complaints"],
+  "f-b": ["Check kitchen status", "Inventory check", "Gather feedback"],
+  maintenance: ["Equipment checks", "Complete repair work"],
 };
 
 export function ReportForm() {
-  const [department, setDepartment] = useState("housekeeping");
-  const [shiftType, setShiftType] = useState("morning");
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [checklists, setChecklists] = useState<string[]>([]);
-  const [issues, setIssues] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ReportFormValues>({
+    resolver: zodResolver(reportSchema),
+    defaultValues: {
+      department: "housekeeping",
+      shiftType: "morning",
+      checklists: departmentTemplates.housekeeping.map((item) => ({
+        item,
+        status: "incomplete",
+      })),
+      issues: [],
+      photos: [],
+    },
+  });
 
-  const handleDepartmentChange = (value: string) => {
-    setDepartment(value);
-  };
+  const {
+    fields: issueFields,
+    append: appendIssue,
+    remove: removeIssue,
+  } = useFieldArray({
+    control,
+    name: "issues",
+  });
 
-  const handleShiftTypeChange = (value: string) => {
-    setShiftType(value);
-  };
+  const {
+    fields: photoFields,
+    append: appendPhoto,
+    remove: removePhoto,
+  } = useFieldArray({
+    control,
+    name: "photos",
+  });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const selectedDepartment = watch("department");
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ file: reader.result }),
-      });
-      const data = await response.json();
-      setPhotos([...photos, data.url]);
-    };
-  };
-
-  const handleCheckboxChange = (id: string) => {
-    if (checklists.includes(id)) {
-      setChecklists(checklists.filter((item) => item !== id));
-    } else {
-      setChecklists([...checklists, id]);
-    }
-  };
-
-  const handleSubmit = async () => {
-    setIsLoading(true);
+  const onSubmit = async (data: ReportFormValues) => {
     try {
       const response = await fetch("/api/reports", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          department,
-          shiftType,
-          checklists: checklists.map((id) => ({
-            task: departmentTemplates[
-              department as keyof typeof departmentTemplates
-            ].checklists.find((item) => item.id === id)?.label,
-            completed: true,
-          })),
-          issues: [{ description: issues, priority: "low" }],
-          photos,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
 
       if (response.ok) {
         toast.success("Report submitted successfully!");
       } else {
-        toast.error("Error submitting report.");
+        const errorData = await response.json();
+        toast.error(errorData.message || "Failed to submit report.");
       }
     } catch (error) {
-      toast.error("Error submitting report.");
-    } finally {
-      setIsLoading(false);
+      toast.error("An unexpected error occurred.");
     }
   };
 
-  const currentTemplate =
-    departmentTemplates[department as keyof typeof departmentTemplates];
+  // Dummy upload handler - di dunia nyata, ini akan mengunggah ke Cloudinary
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Simulasikan unggahan
+    toast.info("Uploading image...");
+    await new Promise(res => setTimeout(res, 1000)); // Delay palsu
+    const fakeUrl = `https://res.cloudinary.com/demo/image/upload/${file.name}`;
+    appendPhoto({ url: fakeUrl, caption: "" });
+    toast.success("Image uploaded!");
+  };
 
   return (
-    <Card>
+    <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>Daily Report</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Department</Label>
-          <Select
-            onValueChange={handleDepartmentChange}
-            defaultValue={department}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a department" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="housekeeping">Housekeeping</SelectItem>
-              <SelectItem value="front-desk">Front Desk</SelectItem>
-              <SelectItem value="f-b">F&B</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Shift</Label>
-          <Select
-            onValueChange={handleShiftTypeChange}
-            defaultValue={shiftType}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a shift" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="morning">Morning</SelectItem>
-              <SelectItem value="evening">Evening</SelectItem>
-              <SelectItem value="night">Night</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Checklist</Label>
-          {currentTemplate.checklists.map((item) => (
-            <div key={item.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={item.id}
-                onCheckedChange={() => handleCheckboxChange(item.id)}
-                disabled={isLoading}
-              />
-              <Label htmlFor={item.id}>{item.label}</Label>
-            </div>
-          ))}
-        </div>
-        <div className="space-y-2">
-          <Label>Issues/Keluhan</Label>
-          <Textarea
-            placeholder="Enter any issues or complaints..."
-            value={issues}
-            onChange={(e) => setIssues(e.target.value)}
-            disabled={isLoading}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Photo Evidence</Label>
-          <Input type="file" onChange={handleFileUpload} disabled={isLoading} />
-          <div className="flex space-x-2">
-            {photos.map((photo) => (
-              <img
-                key={photo}
-                src={photo}
-                alt="Uploaded photo"
-                className="w-24 h-24 object-cover"
-              />
-            ))}
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Department and Shift */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Controller
+              name="department"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                      <SelectItem value="front-desk">Front Desk</SelectItem>
+                      <SelectItem value="f-b">F&B</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />
+            <Controller
+              name="shiftType"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label>Shift</Label>
+                   <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning">Morning</SelectItem>
+                      <SelectItem value="evening">Evening</SelectItem>
+                      <SelectItem value="night">Night</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />
           </div>
-        </div>
-        <Button onClick={handleSubmit} disabled={isLoading}>
-          {isLoading ? "Submitting..." : "Submit Report"}
-        </Button>
+
+          {/* Checklists */}
+          <div>
+            <Label className="text-lg font-semibold">Checklist</Label>
+            <div className="space-y-2 mt-2">
+              {departmentTemplates[selectedDepartment].map((item, index) => (
+                <div key={item} className="flex items-center gap-2">
+                  <Controller
+                    name={`checklists.${index}.status`}
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={field.value === "completed"}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked ? "completed" : "incomplete")
+                        }
+                      />
+                    )}
+                  />
+                  <Label>{item}</Label>
+                </div>
+              ))}
+            </div>
+             {errors.checklists && (
+              <p className="text-sm text-red-500 mt-1">{errors.checklists.message}</p>
+            )}
+          </div>
+
+          {/* Issues */}
+          <div>
+            <div className="flex justify-between items-center">
+              <Label className="text-lg font-semibold">Issues/Keluhan</Label>
+              <Button type="button" size="sm" onClick={() => appendIssue({ description: "" })}>
+                Add Issue
+              </Button>
+            </div>
+            <div className="space-y-2 mt-2">
+              {issueFields.map((field, index) => (
+                <div key={field.id} className="flex items-center gap-2">
+                  <Textarea
+                    {...register(`issues.${index}.description`)}
+                    placeholder="Describe the issue..."
+                    className="flex-grow"
+                  />
+                  <Button type="button" variant="destructive" size="icon" onClick={() => removeIssue(index)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Photos */}
+           <div>
+            <Label className="text-lg font-semibold">Photo Evidence</Label>
+            <Input type="file" onChange={handleFileUpload} className="mt-2" />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+              {photoFields.map((field, index) => (
+                <div key={field.id} className="space-y-2">
+                  <img src={field.url} alt={`upload-${index}`} className="rounded-md object-cover aspect-square"/>
+                  <div className="flex items-center gap-2">
+                     <Input
+                      {...register(`photos.${index}.caption`)}
+                      placeholder="Caption..."
+                      className="flex-grow"
+                    />
+                     <Button type="button" variant="destructive" size="icon" onClick={() => removePhoto(index)}>
+                       <Trash2 className="h-4 w-4" />
+                     </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Report"}
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );
